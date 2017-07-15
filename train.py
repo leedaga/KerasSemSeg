@@ -71,11 +71,11 @@ def generator(samples, class_colors, batch_size=32, perc_to_augment=0.5):
                 images_Y.append(image_b)
 
                 #flip image and steering.
-                image_a = np.fliplr(image_a)
-                image_b = np.fliplr(image_b)
+                #image_a = np.fliplr(image_a)
+                #image_b = np.fliplr(image_b)
 
-                images_X.append(image_a)
-                images_Y.append(image_b)
+                #images_X.append(image_a)
+                #images_Y.append(image_b)
 
 
             # final np array to submit to training
@@ -94,10 +94,11 @@ def show_model_summary(model):
     #    print(layer.output_shape)
 
 
-def make_model(nb_classes, input_shape):
+def make_model(nb_classes, input_shape, batch_size):
 
     model = densenet_fc.DenseNetFCN(input_shape=input_shape, 
-            nb_dense_block=5, 
+            nb_dense_block=5,
+            batchsize=batch_size,
             growth_rate=16,
             nb_layers_per_block=4,
             #upsampling_type='upsampling',
@@ -165,7 +166,7 @@ def train():
 
     train_generator, validation_generator, n_train, n_val = make_generators(path_mask, class_colors=class_colors, batch_size=batch_size)
 
-    model = make_model(nb_classes, input_shape)
+    model = make_model(nb_classes, input_shape, batch_size)
 
     show_model_summary(model)
 
