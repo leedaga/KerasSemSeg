@@ -38,7 +38,7 @@ def generator(samples, class_colors, batch_size=32, perc_to_augment=0.5):
     Rather than keep all data in memory, we will make a function that keeps
     it's state and returns just the latest batch required via the yield command.
     
-    We flip each image horizontally and supply it as a another sample.
+    We could flip each image horizontally and supply it as a another sample.
     '''
     num_samples = len(samples)
     while 1: # Loop forever so the generator never terminates
@@ -63,10 +63,7 @@ def generator(samples, class_colors, batch_size=32, perc_to_augment=0.5):
                 thresh = 20
 
                 image_b = prepare_mask(image_b, class_colors, thresh)
-
-                #image_a = np.array(image_a)
-                #image_b = np.array(image_b)
-
+                
                 images_X.append(image_a)
                 images_Y.append(image_b)
 
@@ -137,9 +134,8 @@ def make_generators(path_mask, class_colors, batch_size=32):
     train_generator = generator(train_samples, class_colors, batch_size=batch_size, perc_to_augment=0.0)
     validation_generator = generator(validation_samples, class_colors, batch_size=batch_size, perc_to_augment=0.0)
     
-    #double each because we will flip image in generator
-    n_train = len(train_samples) * 2
-    n_val = len(validation_samples) * 2
+    n_train = len(train_samples)
+    n_val = len(validation_samples)
     
     return train_generator, validation_generator, n_train, n_val
 
