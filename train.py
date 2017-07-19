@@ -13,6 +13,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.utils import shuffle
 import glob
 import models
+import argparse
 
 def prepare_mask(img, class_colors, thresh):
     '''
@@ -131,17 +132,18 @@ def train(opt):
     Use Keras to train an artificial neural network to use end-to-end behavorial cloning to drive a vehicle.
     '''
     path_mask = './data/*_a.png'
-    epochs = 10
-    batch_size = 2
+    epochs = opt['epochs']
+    batch_size = opt['batch_size']
 
     train_generator, validation_generator, n_train, n_val = make_generators(path_mask, class_colors=opt['class_colors'], batch_size=batch_size)
 
-    model = models.make_model(input_shape=opt['input_shape'], num_classes=opt['nb_classes'])
+    model = models.create_model(opt)
+    #model = models.make_model(input_shape=opt['input_shape'], num_classes=opt['nb_classes'])
 
     show_model_summary(model)
 
     callbacks = [
-        EarlyStopping(monitor='val_loss', patience=6, verbose=0),
+        #EarlyStopping(monitor='val_loss', patience=6, verbose=0),
         ModelCheckpoint(opt['weights_file'], monitor='val_loss', save_best_only=True, verbose=0),
     ]
 
@@ -154,6 +156,7 @@ def train(opt):
         callbacks=callbacks)
 
     print('training complete.')
+    model.save_weights(opt['weights_end_file'])
 
 
 def predict(opt):
@@ -161,7 +164,8 @@ def predict(opt):
     take and image and use a trained model to segment it
     '''
 
-    model = models.make_model(input_shape=opt['input_shape'], num_classes=opt['nb_classes'])
+    model = models.create_model(opt)
+    #model = models.make_model(input_shape=opt['input_shape'], num_classes=opt['nb_classes'])
     model.load_weights(opt['weights_file'])
 
     '''
@@ -184,41 +188,61 @@ def predict(opt):
     print("pred", pred.shape)
 
     mask = pred[0][:, :, :1]
-    mask_bin = np.zeros_like(mask)
+    mask_bin = np.zeros_like(mask, dtype=np.uint8)
     mask_bin[(mask > 0.5)] = 255
 
     print("mask", mask.shape)
 
     print("writing test.png output")
-    cv2.imwrite("lane_test1.png", mask_bin)
+    cv2.imwrite("lane_test_el1_3x3_conv_32_epochs_64_filters_25_layers_tanh.png", mask_bin)
 
-    mask = pred[0][:, :, :3]   
-    cv2.imwrite("lane_test2.png", mask * 255)
 
 if __name__ == "__main__":
     
-    opt = {}
+    parser = argparse.ArgumentParser(description='train script')
+    parser.add_argument('--model', default='model.h5', type=str, help='model name')
+    parser.add_argument('--predict', action='store_true', help='do predict test')
+    parser.add_argument('--epochs', type=int, default=8, help='number of epochs')
+    parser.add_argument('--batch_size', type=int, default=4, help='number samples per batch')
+    args = parser.parse_args()
+
     
+    opt         = {'name': 'lanes',
+                 'presence_weight': 50.0, 'threshold': 0.5,
+                 'original_max_x': 224, 'original_max_y': 224,
+                 'crop_min_x': 0, 'crop_max_x': 224,
+                 'crop_min_y': 0, 'crop_max_y': 224,
+                 'scale_factor': 1}
+
+
+    '''
     opt['class_colors'] = [
         ([240, 20, 20]), #lane lines
         ([0, 78, 255]), #road
         ([45, 99, 36]), #ground
         ([250, 250, 250]), #sky
     ]
+    '''
 
-    opt['weights_file'] = 'model.h5'
+    opt['class_colors'] = [
+        ([240, 20, 20]), #lane lines
+    ]
+
+    #the model saved only when the val_loss improves
+    opt['weights_file'] = args.model
+
+    #the model saved when the training finishes, regardless of val_loss
+    opt['weights_end_file'] = args.model.replace('.', '_end.')
 
     opt['nb_classes'] = len(opt['class_colors'])
 
     opt['input_shape'] = (224, 224, 3)
 
-    do_pred = False  
+    opt['epochs'] = args.epochs
+    
+    opt['batch_size'] = args.batch_size
 
-    for arg in sys.argv:
-        if arg.find('predict') != -1:
-            do_pred = True
-
-    if do_pred:
+    if args.predict:
         predict(opt)
     else:
         train(opt)
