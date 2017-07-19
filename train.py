@@ -13,7 +13,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.utils import shuffle
 from utils.loss_function import *
 import glob
-import densenet_fc
+import models
 
 def prepare_mask(img, class_colors, thresh):
     '''
@@ -28,7 +28,9 @@ def prepare_mask(img, class_colors, thresh):
         lower = np.array(col) - thresh
         upper = np.array(col) + thresh
         mask = cv2.inRange(img, lower, upper)
-        mask_channels.append(mask)
+        normalized = np.zeros_like(mask)
+        normalized[mask > 0] = 1
+        mask_channels.append(normalized)
 
     return np.array(mask_channels).transpose()
 
@@ -52,13 +54,16 @@ def generator(samples, class_colors, batch_size=32, perc_to_augment=0.5):
             for batch_sample in batch_samples:
                 image_a_path, image_b_path = batch_sample
 
-                image_a = cv2.imread(image_a_path)
+                image_a = cv2.imread(image_a_path)                
                 if image_a is None:
                     continue
 
                 image_b = cv2.imread(image_b_path)
                 if image_b is None:
                     continue
+
+                image_a = cv2.cvtColor(image_a, cv2.COLOR_BGR2RGB)
+                image_b = cv2.cvtColor(image_b, cv2.COLOR_BGR2RGB)
 
                 thresh = 20
 
@@ -87,25 +92,8 @@ def show_model_summary(model):
     '''
     model.summary()
     print("num layers:", len(model.layers))
-    #for layer in model.layers:
-    #    print(layer.output_shape)
-
-
-def make_model(nb_classes, input_shape, batch_size):
-
-    model = densenet_fc.DenseNetFCN(input_shape=input_shape, 
-            nb_dense_block=5,
-            batchsize=batch_size,
-            growth_rate=16,
-            nb_layers_per_block=4,
-            #upsampling_type='upsampling',
-            upsampling_type='deconv',
-            classes=nb_classes)
-
-    model.compile(loss = binary_crossentropy_with_logits,
-                optimizer="sgd")
-
-    return model
+    for layer in model.layers:
+        print(layer.output_shape)
 
 def get_filenames(path_mask, seg_search, seg_rep):
     
@@ -139,9 +127,7 @@ def make_generators(path_mask, class_colors, batch_size=32):
     
     return train_generator, validation_generator, n_train, n_val
 
-
-
-def train():
+def train(opt):
     '''
     Use Keras to train an artificial neural network to use end-to-end behavorial cloning to drive a vehicle.
     '''
@@ -149,26 +135,15 @@ def train():
     epochs = 10
     batch_size = 2
 
-    class_colors = [
-        ([240, 20, 20]), #lane lines
-        ([0, 78, 255]), #road
-        ([45, 99, 36]), #ground
-        ([250, 250, 250]), #sky
-    ]
+    train_generator, validation_generator, n_train, n_val = make_generators(path_mask, class_colors=opt['class_colors'], batch_size=batch_size)
 
-    nb_classes = len(class_colors)
-
-    input_shape = (224, 224, 3)
-
-    train_generator, validation_generator, n_train, n_val = make_generators(path_mask, class_colors=class_colors, batch_size=batch_size)
-
-    model = make_model(nb_classes, input_shape, batch_size)
+    model = models.make_model(input_shape=opt['input_shape'], num_classes=opt['nb_classes'])
 
     show_model_summary(model)
 
     callbacks = [
         EarlyStopping(monitor='val_loss', patience=6, verbose=0),
-        ModelCheckpoint("model.h5", monitor='val_loss', save_best_only=True, verbose=0),
+        ModelCheckpoint(opt['weights_file'], monitor='val_loss', save_best_only=True, verbose=0),
     ]
 
     history = model.fit_generator(train_generator, 
@@ -182,41 +157,69 @@ def train():
     print('training complete.')
 
 
-def predict():
+def predict(opt):
     '''
     take and image and use a trained model to segment it
     '''
-    model = load_model("model.h5", 
-        custom_objects={'binary_crossentropy_with_logits': binary_crossentropy_with_logits})
 
-    model.compile(loss = binary_crossentropy_with_logits,
+    model = models.make_model(input_shape=opt['input_shape'], num_classes=opt['nb_classes'])
+    model.load_weights(opt['weights_file'])
+
+    '''
+    model = load_model("model.h5",
+        custom_objects={'weighted_crossentropy': models.weighted_crossentropy(50.)})
+
+    model.compile(loss = 'crossentropy',
                 optimizer="sgd")
+                '''
 
     image_path = "./data/image_00000000_a.png"
 
     print("reading image", image_path)
     img = cv2.imread(image_path)
+    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
     print("doing forward pass in image segmentation")
     pred = model.predict(img[None, :, :, :])
 
     print("pred", pred.shape)
 
-    mask = pred[0][:, :, :3]
+    mask = pred[0][:, :, :1]
+    mask_bin = np.zeros_like(mask)
+    mask_bin[(mask > 0.5)] = 255
 
     print("mask", mask.shape)
 
     print("writing test.png output")
-    cv2.imwrite("test.png", mask)
+    cv2.imwrite("lane_test1.png", mask_bin)
+
+    mask = pred[0][:, :, :3]   
+    cv2.imwrite("lane_test2.png", mask * 255)
 
 if __name__ == "__main__":
-    do_pred = False
     
+    opt = {}
+    
+    opt['class_colors'] = [
+        ([240, 20, 20]), #lane lines
+        ([0, 78, 255]), #road
+        ([45, 99, 36]), #ground
+        ([250, 250, 250]), #sky
+    ]
+
+    opt['weights_file'] = 'model.h5'
+
+    opt['nb_classes'] = len(opt['class_colors'])
+
+    opt['input_shape'] = (224, 224, 3)
+
+    do_pred = False  
+
     for arg in sys.argv:
         if arg.find('predict') != -1:
             do_pred = True
 
     if do_pred:
-        predict()
+        predict(opt)
     else:
-        train()
+        train(opt)

@@ -9,31 +9,42 @@ from keras.layers import Convolution2D, Reshape
 from keras.layers import Dense, Lambda, ELU
 from keras.layers import Activation, Dropout, Flatten, Dense
 from keras.layers.convolutional import Deconvolution2D
+import tensorflow as tf
 
-def make_model(input_shape, num_classes, batch_size):
+def weighted_crossentropy(weight):
+    """Higher weights increase the importance of examples in which
+    the correct answer is 1. Higher values should be used when
+    1 is a rare answer. Lower values should be used when 0 is
+    a rare answer."""
+    return (lambda y_true, y_pred: tf.nn.weighted_cross_entropy_with_logits(y_true, y_pred, weight))
+
+def make_model(input_shape, num_classes):
     h, w, ch = input_shape
     model = Sequential()
     model.ch_order = 'channel_last'
     model.add(Lambda(lambda x: x/127.5 - 1.,
             input_shape=input_shape,
             output_shape=input_shape))
-    model.add(Convolution2D(24, 5, 5, subsample=(2, 2), border_mode="same"))
+    model.add(Convolution2D(24, 5, 5, border_mode="same"))
     model.add(Activation('relu'))
-    model.add(Convolution2D(36, 5, 5, subsample=(2, 2), border_mode="same"))
+    model.add(Convolution2D(36, 5, 5, border_mode="same"))
     model.add(Activation('relu'))
-    model.add(Convolution2D(48, 3, 3, subsample=(2, 2), border_mode="same"))
+    model.add(Convolution2D(48, 3, 3, border_mode="same"))
     model.add(Activation('relu'))
-    model.add(Convolution2D(64, 3, 3, subsample=(2, 2), border_mode="same"))
+    model.add(Convolution2D(64, 3, 3, border_mode="same"))
     model.add(Activation('relu'))
-    model.add(Convolution2D(4096, 1, 1, subsample=(1, 1), border_mode="same"))
-    model.add(Activation('relu'))
-    model.add(Convolution2D(num_classes, 1, 1, subsample=(1, 1), border_mode="same"))
+    model.add(Convolution2D(num_classes, 1, 1, border_mode="same"))
+    #model.add(Activation('softmax'))
 
-    #this doesn't work! how to fix?
-    #can't seem to get the output size correct
-    model.add(Deconvolution2D(num_classes, 64, 64, output_shape=(batch_size, num_classes, h, w), subsample=(32, 32)))
-    model.add(Reshape(num_classes,h,w))
-    
+    presence_weight = 50.0
 
-    model.compile(optimizer="adam", loss="mse")
+
+
+    model.compile(optimizer='adam',
+                loss=weighted_crossentropy(presence_weight),
+    #            loss='categorical_crossentropy',
+                metrics=['categorical_crossentropy', 'accuracy'])
+    #            loss='sparse_categorical_crossentropy',
+    #            metrics=['accuracy'])
+
     return model
