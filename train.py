@@ -11,7 +11,6 @@ from keras.callbacks import EarlyStopping, ModelCheckpoint
 from keras.models import load_model
 from sklearn.model_selection import train_test_split
 from sklearn.utils import shuffle
-from utils.loss_function import *
 import glob
 import models
 
