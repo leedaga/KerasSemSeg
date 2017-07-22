@@ -5,4 +5,4 @@ h5py
 matplotlib
 scikit-learn
 pillow
-tensorflow-gpu
+tensorflow

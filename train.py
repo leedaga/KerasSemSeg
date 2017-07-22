@@ -112,7 +112,7 @@ def make_generators(path_mask, class_colors, batch_size=32):
     '''
     
     #get the image/steering pairs from the csv files
-    lines = get_filenames(path_mask, "_a.", "_b.")
+    lines = get_filenames(path_mask, "_a.", "_mask.")
 
     print("found %d file pairs." % (len(lines)))
     
@@ -131,7 +131,7 @@ def train(opt):
     '''
     Use Keras to train an artificial neural network to use end-to-end behavorial cloning to drive a vehicle.
     '''
-    path_mask = './data/*_a.png'
+    path_mask = './data_rw/*_a.jpg'
     epochs = opt['epochs']
     batch_size = opt['batch_size']
 
@@ -209,9 +209,9 @@ if __name__ == "__main__":
     
     opt         = {'name': 'lanes',
                  'presence_weight': 50.0, 'threshold': 0.5,
-                 'original_max_x': 224, 'original_max_y': 224,
-                 'crop_min_x': 0, 'crop_max_x': 224,
-                 'crop_min_y': 0, 'crop_max_y': 224,
+                 'original_max_x': 640, 'original_max_y': 480,
+                 'crop_min_x': 0, 'crop_max_x': 640,
+                 'crop_min_y': 0, 'crop_max_y': 480,
                  'scale_factor': 1}
 
 
@@ -225,7 +225,7 @@ if __name__ == "__main__":
     '''
 
     opt['class_colors'] = [
-        ([240, 20, 20]), #lane lines
+        ([250, 10, 10]), #lane lines
     ]
 
     #the model saved only when the val_loss improves
@@ -236,7 +236,7 @@ if __name__ == "__main__":
 
     opt['nb_classes'] = len(opt['class_colors'])
 
-    opt['input_shape'] = (224, 224, 3)
+    opt['input_shape'] = (640, 480, 3)
 
     opt['epochs'] = args.epochs
     
