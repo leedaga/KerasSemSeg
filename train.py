@@ -15,33 +15,52 @@ import glob
 import models
 import argparse
 
-def prepare_mask(img, class_colors, thresh):
+def prepare_mask(mimg, opt):
     '''
     Take an RGB image where different classes of pixels all share a color
     from the list of class_colors. Then create a matrix with a mask for each
     class using the threshold value passed in. Returns the numpy array of masks.
-    Note*
-    It only seemed to match the densenet_fc output shape when it was transposed.
     '''
-    mask_channels = []
-    for col in class_colors:
-        lower = np.array(col) - thresh
-        upper = np.array(col) + thresh
-        mask = cv2.inRange(img, lower, upper)
-        normalized = np.zeros_like(mask)
-        normalized[mask > 0] = 1
-        mask_channels.append(normalized)
+    comb_classes = opt['combined_classes']
+    class_colors = opt['class_colors']
+    
+    width = mimg.shape[1]
+    height = mimg.shape[0]
+    mask_image = np.zeros([height, width, 3], dtype=np.dtype('B'))
+    iClass = 0
+    for key, value in comb_classes.items():
+        mask_ch = None
 
-    return np.array(mask_channels).transpose()
+        for col_indx_low, col_indx_hi in value:
+            col_low = class_colors[col_indx_low]
+            col_hi = class_colors[col_indx_hi]
+            lower = np.array(col_low)
+            upper = np.array(col_hi)
+            mask = cv2.inRange(mimg, lower, upper)
+
+            if mask_ch is None:
+                mask_ch = np.zeros_like(mask)
+                mask_ch[mask > 0] = 1
+            else:
+                mask_ch_add = np.zeros_like(mask)
+                mask_ch_add[mask > 0] = 1
+                mask_ch = np.add(mask_ch, mask_ch_add)
+                
+        mask_image[..., iClass] = np.reshape(mask_ch, (height, width))
+        iClass += 1
+
+    #print(mask_image.shape)
+    return mask_image
 
 
-def generator(samples, class_colors, batch_size=32, perc_to_augment=0.5):
+def generator(samples, opt):
     '''
     Rather than keep all data in memory, we will make a function that keeps
     it's state and returns just the latest batch required via the yield command.
     
     We could flip each image horizontally and supply it as a another sample.
     '''
+    batch_size = opt['batch_size']
     num_samples = len(samples)
     while 1: # Loop forever so the generator never terminates
         shuffle(samples)
@@ -65,20 +84,10 @@ def generator(samples, class_colors, batch_size=32, perc_to_augment=0.5):
                 image_a = cv2.cvtColor(image_a, cv2.COLOR_BGR2RGB)
                 image_b = cv2.cvtColor(image_b, cv2.COLOR_BGR2RGB)
 
-                thresh = 20
-
-                image_b = prepare_mask(image_b, class_colors, thresh)
+                image_b = prepare_mask(image_b, opt)
                 
                 images_X.append(image_a)
                 images_Y.append(image_b)
-
-                #flip image and steering.
-                #image_a = np.fliplr(image_a)
-                #image_b = np.fliplr(image_b)
-
-                #images_X.append(image_a)
-                #images_Y.append(image_b)
-
 
             # final np array to submit to training
             X_train = np.array(images_X)
@@ -91,54 +100,61 @@ def show_model_summary(model):
     show the model layer details
     '''
     model.summary()
-    print("num layers:", len(model.layers))
-    for layer in model.layers:
-        print(layer.output_shape)
+    #print("num layers:", len(model.layers))
+    #for layer in model.layers:
+    #    print(layer.output_shape)
 
-def get_filenames(path_mask, seg_search, seg_rep):
+def get_filenames(opt):
+    '''
+    using the rgb and mask file path, gather up
+    the training files in a tuple of rgb, mask pairs
+    '''
     
-    files = glob.glob(path_mask)
+    rgb_file_mask = opt['rgb_images']
+    mask_file_mask = opt['mask_images']
+   
+    rgbfiles = glob.glob(rgb_file_mask)
+    maskfiles = glob.glob(mask_file_mask)
+    
     train_files = []
 
-    for f in files:
-        train_files.append((f ,f.replace(seg_search, seg_rep)))
+    rgbfiles.sort()
+    maskfiles.sort()
+
+    for rgb, mask in zip(rgbfiles, maskfiles):
+        train_files.append((rgb, mask))
 
     return train_files
 
 
-def make_generators(path_mask, class_colors, batch_size=32):
+def make_generators(opt):
     '''
     load the job spec from the csv and create some generator for training
     '''
-    
-    #get the image/steering pairs from the csv files
-    lines = get_filenames(path_mask, "_a.", "_mask.")
+
+    lines = get_filenames(opt)
 
     print("found %d file pairs." % (len(lines)))
     
     train_samples, validation_samples = train_test_split(lines, test_size=0.2)
     
     # compile and train the model using the generator function
-    train_generator = generator(train_samples, class_colors, batch_size=batch_size, perc_to_augment=0.0)
-    validation_generator = generator(validation_samples, class_colors, batch_size=batch_size, perc_to_augment=0.0)
+    train_generator = generator(train_samples, opt)
+    validation_generator = generator(validation_samples, opt)
     
     n_train = len(train_samples)
     n_val = len(validation_samples)
     
     return train_generator, validation_generator, n_train, n_val
 
+
 def train(opt):
     '''
     Use Keras to train an artificial neural network to use end-to-end behavorial cloning to drive a vehicle.
     '''
-    path_mask = './data_rw/*_a.jpg'
-    epochs = opt['epochs']
-    batch_size = opt['batch_size']
-
-    train_generator, validation_generator, n_train, n_val = make_generators(path_mask, class_colors=opt['class_colors'], batch_size=batch_size)
+    train_generator, validation_generator, n_train, n_val = make_generators(opt)
 
     model = models.create_model(opt)
-    #model = models.make_model(input_shape=opt['input_shape'], num_classes=opt['nb_classes'])
 
     show_model_summary(model)
 
@@ -148,10 +164,10 @@ def train(opt):
     ]
 
     history = model.fit_generator(train_generator, 
-        samples_per_epoch = n_train,
         validation_data = validation_generator,
-        nb_val_samples = n_val,
-        nb_epoch=epochs,
+        steps_per_epoch = n_train // opt['batch_size'],
+        validation_steps = n_val // opt['batch_size'],
+        epochs=opt['epochs'],
         verbose=1,
         callbacks=callbacks)
 
@@ -165,7 +181,6 @@ def predict(opt):
     '''
 
     model = models.create_model(opt)
-    #model = models.make_model(input_shape=opt['input_shape'], num_classes=opt['nb_classes'])
     model.load_weights(opt['weights_file'])
 
     '''
@@ -203,15 +218,18 @@ if __name__ == "__main__":
     parser.add_argument('--model', default='model.h5', type=str, help='model name')
     parser.add_argument('--predict', action='store_true', help='do predict test')
     parser.add_argument('--epochs', type=int, default=8, help='number of epochs')
-    parser.add_argument('--batch_size', type=int, default=4, help='number samples per batch')
+    parser.add_argument('--batch_size', type=int, default=2, help='number samples per batch')
+    parser.add_argument('--data_rgb', default="D:\\projects\\lyft_challenge\\Train\\CameraRGB\\*.png", help='data root dir')
+    parser.add_argument('--data_mask', default="D:\\projects\\lyft_challenge\\Train\\CameraSeg\\*.png", help='data root dir')
+    
     args = parser.parse_args()
 
     
     opt         = {'name': 'lanes',
                  'presence_weight': 50.0, 'threshold': 0.5,
-                 'original_max_x': 640, 'original_max_y': 480,
-                 'crop_min_x': 0, 'crop_max_x': 640,
-                 'crop_min_y': 0, 'crop_max_y': 480,
+                 'original_max_x': 800, 'original_max_y': 600,
+                 'crop_min_x': 0, 'crop_max_x': 800,
+                 'crop_min_y': 0, 'crop_max_y': 600,
                  'scale_factor': 1}
 
 
@@ -223,10 +241,28 @@ if __name__ == "__main__":
         ([250, 250, 250]), #sky
     ]
     '''
-
+    
     opt['class_colors'] = [
-        ([250, 10, 10]), #lane lines
+        ([0, 0, 0]), #sky
+        ([1, 0, 0]), #buildings
+        ([2, 0, 0]), #?
+        ([3, 0, 0]), #?
+        ([4, 0, 0]), #?
+        ([5, 0, 0]), #?
+        ([6, 0, 0]), #lane lines
+        ([7, 0, 0]), #street
+        ([8, 0, 0]), #sidewalk
+        ([9, 0, 0]), #trees
+        ([10, 0, 0]), #car
+        ([11, 0, 0]), #walls
     ]
+
+    opt['combined_classes'] =\
+    {
+        1 : [(0, 5), (8, 9), (11, 11)],
+        2 : [(6, 7)],
+        3 : [(10, 10)]
+    }
 
     #the model saved only when the val_loss improves
     opt['weights_file'] = args.model
@@ -234,9 +270,12 @@ if __name__ == "__main__":
     #the model saved when the training finishes, regardless of val_loss
     opt['weights_end_file'] = args.model.replace('.', '_end.')
 
-    opt['nb_classes'] = len(opt['class_colors'])
+    opt['nb_classes'] = len(opt['combined_classes'])
 
-    opt['input_shape'] = (640, 480, 3)
+    opt['rgb_images'] = args.data_rgb
+    opt['mask_images'] = args.data_mask
+
+    opt['input_shape'] = (800, 600, 3)
 
     opt['epochs'] = args.epochs
     

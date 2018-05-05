@@ -21,39 +21,6 @@ def weighted_crossentropy(weight):
     a rare answer."""
     return (lambda y_true, y_pred: tf.nn.weighted_cross_entropy_with_logits(y_true, y_pred, weight))
 
-def make_model(input_shape, num_classes):
-    h, w, ch = input_shape
-    model = Sequential()
-    model.ch_order = 'channel_last'
-    model.add(Lambda(lambda x: x/127.5 - 1.,
-            input_shape=input_shape,
-            output_shape=input_shape))
-    model.add(Convolution2D(24, 5, 5, border_mode="same"))
-    model.add(Activation('relu'))
-    model.add(Convolution2D(36, 5, 5, border_mode="same"))
-    model.add(Activation('relu'))
-    model.add(Convolution2D(48, 3, 3, border_mode="same"))
-    model.add(Activation('relu'))
-    model.add(Convolution2D(64, 3, 3, border_mode="same"))
-    model.add(Activation('relu'))
-    model.add(Convolution2D(num_classes, 1, 1, border_mode="same"))
-    #model.add(Activation('softmax'))
-
-    presence_weight = 50.0
-
-
-
-    model.compile(optimizer='adam',
-                loss=weighted_crossentropy(presence_weight),
-    #            loss='categorical_crossentropy',
-                metrics=['categorical_crossentropy', 'accuracy'])
-    #            loss='sparse_categorical_crossentropy',
-    #            metrics=['accuracy'])
-
-    return model
-
-
-
 '''
 From Eric Lavigne, Udacity
 https://github.com/ericlavigne/CarND-Detect-Lane-Lines-And-Vehicles
@@ -89,6 +56,9 @@ def create_model(opt):
     #double layer count is linear increase in training time. about 2x
     c = 3
     act = 'tanh'
+    num_conv = 32
+
+    num_classes = opt['nb_classes']
 
     model.add(Convolution2D(20, c, c, border_mode='same',
             input_shape=(int((opt['crop_max_y'] - opt['crop_min_y']) / opt['scale_factor']),
@@ -98,28 +68,28 @@ def create_model(opt):
     model.add(Activation(act))
     model.add(Dropout(0.5))
 
-    model.add(Convolution2D(64, c, c, border_mode='same'))
+    model.add(Convolution2D(num_conv, c, c, border_mode='same'))
     model.add(BatchNormalization())
     model.add(Activation(act))
     model.add(Dropout(0.5))
-    model.add(Convolution2D(64, c, c, border_mode='same'))
+    model.add(Convolution2D(num_conv, c, c, border_mode='same'))
     model.add(BatchNormalization())
     model.add(Activation(act))
     model.add(Dropout(0.5))
-    model.add(Convolution2D(64, c, c, border_mode='same'))
+    model.add(Convolution2D(num_conv, c, c, border_mode='same'))
     model.add(BatchNormalization())
     model.add(Activation(act))
     model.add(Dropout(0.5))    
-    model.add(Convolution2D(64, c, c, border_mode='same'))
+    model.add(Convolution2D(num_conv, c, c, border_mode='same'))
     model.add(BatchNormalization())
     model.add(Activation(act))
     model.add(Dropout(0.5))
-    model.add(Convolution2D(64, c, c, border_mode='same'))
+    model.add(Convolution2D(num_conv, c, c, border_mode='same'))
     model.add(BatchNormalization())
     model.add(Activation(act))
     model.add(Dropout(0.5))
     
-    model.add(Convolution2D(1, c, c, border_mode='same', W_regularizer=l2(0.01), activation=tanh_zero_to_one))
+    model.add(Convolution2D(num_classes, c, c, border_mode='same', W_regularizer=l2(0.01), activation=tanh_zero_to_one))
     compile_model(model, opt)
 
     return model
