@@ -1,4 +1,4 @@
-import sys, skvideo.io, json, base64
+import sys, skvideo.io, json, base64, os
 import numpy as np
 from PIL import Image
 from io import BytesIO, StringIO
@@ -20,10 +20,10 @@ answer_key = {}
 
 opt = {}
 
-opt['weights_file'] = 'model.h5'
+opt['weights_file'] = os.path.join(os.path.realpath(__file__), 'model.h5')
 opt['nb_classes'] = 3
 opt['input_shape'] = (600, 800, 3)
-
+opt['presence_weight'] = 50.0
 
 model = models.create_model(opt)
 model.load_weights(opt['weights_file'])

@@ -5,10 +5,9 @@ Author: Tawn Kramer
 '''
 from __future__ import print_function
 from keras.models import Sequential
-from keras.layers import Convolution2D, Reshape
+from keras.layers import Conv2D, Reshape
 from keras.layers import Dense, Lambda, ELU
 from keras.layers import Activation, Dropout, Flatten, Dense
-from keras.layers.convolutional import Deconvolution2D
 from keras.layers.normalization import BatchNormalization
 from keras.regularizers import l2
 
@@ -51,7 +50,7 @@ def create_model(opt):
     """Create neural network model, defining layer architecture."""
     model = Sequential()
     
-    # Convolution2D(output_depth, convolution height, convolution_width, ...)
+    # Conv2D(output_depth, convolution height, convolution_width, ...)
     #5x5 trains in 1.5 times duration of 3x3
     #double layer count is linear increase in training time. about 2x
     c = 3
@@ -60,33 +59,33 @@ def create_model(opt):
 
     num_classes = opt['nb_classes']
 
-    model.add(Convolution2D(20, c, c, border_mode='same', input_shape=opt['input_shape']))
+    model.add(Conv2D(20, (c, c), padding='same', input_shape=opt['input_shape']))
     model.add(BatchNormalization())
     model.add(Activation(act))
     model.add(Dropout(0.5))
 
-    model.add(Convolution2D(num_conv, c, c, border_mode='same'))
+    model.add(Conv2D(num_conv, (c, c), padding='same'))
     model.add(BatchNormalization())
     model.add(Activation(act))
     model.add(Dropout(0.5))
-    model.add(Convolution2D(num_conv, c, c, border_mode='same'))
+    model.add(Conv2D(num_conv, (c, c), padding='same'))
     model.add(BatchNormalization())
     model.add(Activation(act))
     model.add(Dropout(0.5))
-    model.add(Convolution2D(num_conv, c, c, border_mode='same'))
+    model.add(Conv2D(num_conv, (c, c), padding='same'))
     model.add(BatchNormalization())
     model.add(Activation(act))
     model.add(Dropout(0.5))    
-    model.add(Convolution2D(num_conv, c, c, border_mode='same'))
+    model.add(Conv2D(num_conv, (c, c), padding='same'))
     model.add(BatchNormalization())
     model.add(Activation(act))
     model.add(Dropout(0.5))
-    model.add(Convolution2D(num_conv, c, c, border_mode='same'))
+    model.add(Conv2D(num_conv, (c, c), padding='same'))
     model.add(BatchNormalization())
     model.add(Activation(act))
     model.add(Dropout(0.5))
     
-    model.add(Convolution2D(num_classes, 1, 1, border_mode='same', activation='softmax'))
+    model.add(Conv2D(num_classes, (1, 1), padding='same', activation='softmax'))
     compile_model(model, opt)
 
     return model
