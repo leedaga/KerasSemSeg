@@ -45,11 +45,10 @@ def prepare_mask(mimg, opt):
                 mask_ch_add = np.zeros_like(mask)
                 mask_ch_add[mask > 0] = 1
                 mask_ch = np.add(mask_ch, mask_ch_add)
-                
+              
         mask_image[..., iClass] = np.reshape(mask_ch, (height, width))
         iClass += 1
 
-    #print(mask_image.shape)
     return mask_image
 
 
@@ -100,9 +99,6 @@ def show_model_summary(model):
     show the model layer details
     '''
     model.summary()
-    #print("num layers:", len(model.layers))
-    #for layer in model.layers:
-    #    print(layer.output_shape)
 
 def get_filenames(opt):
     '''
@@ -124,7 +120,7 @@ def get_filenames(opt):
     for rgb, mask in zip(rgbfiles, maskfiles):
         train_files.append((rgb, mask))
 
-    return train_files
+    return train_files[:opt['limit']]
 
 
 def make_generators(opt):
@@ -159,8 +155,10 @@ def train(opt):
     show_model_summary(model)
 
     callbacks = [
-        #EarlyStopping(monitor='val_loss', patience=6, verbose=0),
-        ModelCheckpoint(opt['weights_file'], monitor='val_loss', save_best_only=True, verbose=0, save_weights=True),
+        EarlyStopping(monitor='val_loss', patience=10, verbose=0),
+        ModelCheckpoint(opt['weights_file'], 
+            monitor='val_loss', save_best_only=True, 
+            verbose=0, save_weights_only=True),
     ]
 
     history = model.fit_generator(train_generator, 
@@ -200,9 +198,10 @@ def predict(opt):
     #image will have 0 or 1, so multiply to view
     res = res * 255
     
-    print("writing image_seg_result.png output")
+    print("writing %s output" % opt['out'])
+
     #just three classes, so writes out as nice 3 channel image
-    cv2.imwrite("image_seg_result.png", res)
+    cv2.imwrite(opt['out'], res)
 
 
 if __name__ == "__main__":
@@ -214,6 +213,7 @@ if __name__ == "__main__":
     parser.add_argument('--batch_size', type=int, default=2, help='number samples per batch')
     parser.add_argument('--data_rgb', default="D:\\projects\\lyft_challenge\\Train\\CameraRGB\\*.png", help='data root dir')
     parser.add_argument('--data_mask', default="D:\\projects\\lyft_challenge\\Train\\CameraSeg\\*.png", help='data root dir')
+    parser.add_argument('--out', default="prediction_image.png", help='output image filename')
     
     args = parser.parse_args()
 
@@ -273,6 +273,10 @@ if __name__ == "__main__":
     opt['epochs'] = args.epochs
     
     opt['batch_size'] = args.batch_size
+
+    opt['out'] = args.out
+
+    opt['limit'] = 200 #-1 when all training samples.
 
     if args.predict:
         predict(opt)

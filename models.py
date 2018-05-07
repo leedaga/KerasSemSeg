@@ -4,8 +4,11 @@ Define the different NN models we will use
 Author: Tawn Kramer
 '''
 from __future__ import print_function
-from keras.models import Sequential
-from keras.layers import Conv2D, Reshape
+import os
+import tensorflow as tf
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+from keras.models import Sequential, Input, Model
+from keras.layers import Conv2D, Reshape, Add, UpSampling2D, Multiply, Concatenate
 from keras.layers import Dense, Lambda, ELU
 from keras.layers import Activation, Dropout, Flatten, Dense
 from keras.layers.normalization import BatchNormalization
@@ -39,13 +42,6 @@ def compile_model(model,opt):
                 loss=weighted_binary_crossentropy(opt['presence_weight']),
                 metrics=['binary_accuracy', 'binary_crossentropy'])
 
-tf_pos_tanh_offset = tf.constant(0.5)
-tf_pos_tanh_scale = tf.constant(0.45)
-
-def tanh_zero_to_one(x):
-    """Actually [0.05, 0.95] to avoid divide by zero errors"""
-    return (tf.tanh(x) * tf_pos_tanh_scale) + tf_pos_tanh_offset
-
 def create_model(opt):
     """Create neural network model, defining layer architecture."""
     model = Sequential()
@@ -53,7 +49,7 @@ def create_model(opt):
     # Conv2D(output_depth, convolution height, convolution_width, ...)
     #5x5 trains in 1.5 times duration of 3x3
     #double layer count is linear increase in training time. about 2x
-    c = 3
+    c = 5
     act = 'relu'
     num_conv = 32
 
