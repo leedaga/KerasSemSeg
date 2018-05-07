@@ -160,7 +160,7 @@ def train(opt):
 
     callbacks = [
         #EarlyStopping(monitor='val_loss', patience=6, verbose=0),
-        ModelCheckpoint(opt['weights_file'], monitor='val_loss', save_best_only=True, verbose=0),
+        ModelCheckpoint(opt['weights_file'], monitor='val_loss', save_best_only=True, verbose=0, save_weights=True),
     ]
 
     history = model.fit_generator(train_generator, 
@@ -182,16 +182,8 @@ def predict(opt):
 
     model = models.create_model(opt)
     model.load_weights(opt['weights_file'])
-
-    '''
-    model = load_model("model.h5",
-        custom_objects={'weighted_crossentropy': models.weighted_crossentropy(50.)})
-
-    model.compile(loss = 'crossentropy',
-                optimizer="sgd")
-                '''
-
-    image_path = "./data/image_00000000_a.png"
+    
+    image_path = "D:\\projects\\lyft_challenge\\Train\\CameraRGB\\222.png"
 
     print("reading image", image_path)
     img = cv2.imread(image_path)
@@ -202,14 +194,15 @@ def predict(opt):
 
     print("pred", pred.shape)
 
-    mask = pred[0][:, :, :1]
-    mask_bin = np.zeros_like(mask, dtype=np.uint8)
-    mask_bin[(mask > 0.5)] = 255
+    res = pred[0]
+    print("res", res.shape)
 
-    print("mask", mask.shape)
-
-    print("writing test.png output")
-    cv2.imwrite("lane_test_el1_3x3_conv_32_epochs_64_filters_25_layers_tanh.png", mask_bin)
+    #image will have 0 or 1, so multiply to view
+    res = res * 255
+    
+    print("writing image_seg_result.png output")
+    #just three classes, so writes out as nice 3 channel image
+    cv2.imwrite("image_seg_result.png", res)
 
 
 if __name__ == "__main__":
@@ -217,7 +210,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='train script')
     parser.add_argument('--model', default='model.h5', type=str, help='model name')
     parser.add_argument('--predict', action='store_true', help='do predict test')
-    parser.add_argument('--epochs', type=int, default=8, help='number of epochs')
+    parser.add_argument('--epochs', type=int, default=200, help='number of epochs')
     parser.add_argument('--batch_size', type=int, default=2, help='number samples per batch')
     parser.add_argument('--data_rgb', default="D:\\projects\\lyft_challenge\\Train\\CameraRGB\\*.png", help='data root dir')
     parser.add_argument('--data_mask', default="D:\\projects\\lyft_challenge\\Train\\CameraSeg\\*.png", help='data root dir')
@@ -275,7 +268,7 @@ if __name__ == "__main__":
     opt['rgb_images'] = args.data_rgb
     opt['mask_images'] = args.data_mask
 
-    opt['input_shape'] = (800, 600, 3)
+    opt['input_shape'] = (600, 800, 3)
 
     opt['epochs'] = args.epochs
     

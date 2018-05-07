@@ -55,15 +55,12 @@ def create_model(opt):
     #5x5 trains in 1.5 times duration of 3x3
     #double layer count is linear increase in training time. about 2x
     c = 3
-    act = 'tanh'
+    act = 'relu'
     num_conv = 32
 
     num_classes = opt['nb_classes']
 
-    model.add(Convolution2D(20, c, c, border_mode='same',
-            input_shape=(int((opt['crop_max_y'] - opt['crop_min_y']) / opt['scale_factor']),
-                            int((opt['crop_max_x'] - opt['crop_min_x']) / opt['scale_factor']),
-                            3)))
+    model.add(Convolution2D(20, c, c, border_mode='same', input_shape=opt['input_shape']))
     model.add(BatchNormalization())
     model.add(Activation(act))
     model.add(Dropout(0.5))
@@ -89,7 +86,7 @@ def create_model(opt):
     model.add(Activation(act))
     model.add(Dropout(0.5))
     
-    model.add(Convolution2D(num_classes, c, c, border_mode='same', W_regularizer=l2(0.01), activation=tanh_zero_to_one))
+    model.add(Convolution2D(num_classes, 1, 1, border_mode='same', activation='softmax'))
     compile_model(model, opt)
 
     return model
