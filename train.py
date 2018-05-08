@@ -195,6 +195,11 @@ def predict(opt):
     res = pred[0]
     print("res", res.shape)
 
+    #car channel
+    car_ch = res[:,:,2]
+    binary_car_result = np.where(car_ch>0,1,0).astype('uint8')
+    cv2.imwrite('car.png', binary_car_result * 255)
+
     #image will have 0 or 1, so multiply to view
     res = res * 255
     

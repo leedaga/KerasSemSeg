@@ -37,7 +37,7 @@ for rgb_frame in video:
     pred = model.predict(rgb_frame[None, :, :, :])[0]
 
     #car channel
-    car_ch = pred[:,:,0]
+    car_ch = pred[:,:,2]
     binary_car_result = np.where(car_ch>0,1,0).astype('uint8')
 
     #road channel
