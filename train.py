@@ -276,7 +276,7 @@ if __name__ == "__main__":
 
     opt['out'] = args.out
 
-    opt['limit'] = 200 #-1 when all training samples.
+    opt['limit'] = -1 # when all training samples.
 
     if args.predict:
         predict(opt)
