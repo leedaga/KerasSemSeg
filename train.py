@@ -181,7 +181,7 @@ def predict(opt):
     model = models.create_model(opt)
     model.load_weights(opt['weights_file'])
     
-    image_path = "D:\\projects\\lyft_challenge\\Train\\CameraRGB\\222.png"
+    image_path = "./Train/CameraRGB/222.png"
 
     print("reading image", image_path)
     img = cv2.imread(image_path)
@@ -215,9 +215,9 @@ if __name__ == "__main__":
     parser.add_argument('--model', default='model.h5', type=str, help='model name')
     parser.add_argument('--predict', action='store_true', help='do predict test')
     parser.add_argument('--epochs', type=int, default=200, help='number of epochs')
-    parser.add_argument('--batch_size', type=int, default=2, help='number samples per batch')
-    parser.add_argument('--data_rgb', default="D:\\projects\\lyft_challenge\\Train\\CameraRGB\\*.png", help='data root dir')
-    parser.add_argument('--data_mask', default="D:\\projects\\lyft_challenge\\Train\\CameraSeg\\*.png", help='data root dir')
+    parser.add_argument('--batch_size', type=int, default=1, help='number samples per batch')
+    parser.add_argument('--data_rgb', default="./Train/CameraRGB/*.png", help='data root dir')
+    parser.add_argument('--data_mask', default="./Train/CameraSeg/*.png", help='data root dir')
     parser.add_argument('--out', default="prediction_image.png", help='output image filename')
     
     args = parser.parse_args()

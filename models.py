@@ -6,7 +6,7 @@ Author: Tawn Kramer
 from __future__ import print_function
 import os
 import tensorflow as tf
-os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+#os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 from keras.models import Sequential, Input, Model
 from keras.layers import Conv2D, Reshape, Add, UpSampling2D, Multiply, Concatenate
 from keras.layers import Dense, Lambda, ELU, MaxPooling2D
@@ -23,8 +23,8 @@ def compile_model(model,opt):
     """Would be part of create_model, except that same settings
         also need to be applied when loading model from file."""
     model.compile(optimizer='adam',
-                #loss=weighted_binary_crossentropy(opt['presence_weight']),
-                loss=binary_crossentropy_with_logits,
+                loss=weighted_binary_crossentropy(opt['presence_weight']),
+                #loss=binary_crossentropy_with_logits,
                 metrics=['binary_accuracy', 'binary_crossentropy'])
 
 def FCNN(opt):
@@ -34,7 +34,7 @@ def FCNN(opt):
     # Conv2D(output_depth, convolution height, convolution_width, ...)
     #5x5 trains in 1.5 times duration of 3x3
     #double layer count is linear increase in training time. about 2x
-    c = 5
+    c = 3
     act = 'relu'
     num_conv = 32
 
@@ -45,30 +45,12 @@ def FCNN(opt):
     model.add(Activation(act))
     model.add(Dropout(0.5))
 
-    model.add(Conv2D(num_conv, (c, c), padding='same'))
-    model.add(BatchNormalization())
-    model.add(Activation(act))
-    model.add(Dropout(0.5))
-    
-    model.add(Conv2D(num_conv, (c, c), padding='same'))
-    model.add(BatchNormalization())
-    model.add(Activation(act))
-    model.add(Dropout(0.5))
-    '''
-    model.add(Conv2D(num_conv, (c, c), padding='same'))
-    model.add(BatchNormalization())
-    model.add(Activation(act))
-    model.add(Dropout(0.5))    
-    model.add(Conv2D(num_conv, (c, c), padding='same'))
-    model.add(BatchNormalization())
-    model.add(Activation(act))
-    model.add(Dropout(0.5))
-    model.add(Conv2D(num_conv, (c, c), padding='same'))
-    model.add(BatchNormalization())
-    model.add(Activation(act))
-    model.add(Dropout(0.5))
-    '''
-    
+    for i in range(10):
+        model.add(Conv2D(num_conv, (c, c), padding='same'))
+        model.add(BatchNormalization())
+        model.add(Activation(act))
+        model.add(Dropout(0.5))
+        
     model.add(Conv2D(num_classes, (1, 1), padding='same', activation='softmax'))
     compile_model(model, opt)
 
@@ -118,6 +100,44 @@ def AtrousFCN_Resnet50_16s(opt):
 
     return model
 
+def VGG(opt):
+    from keras.applications.vgg16 import VGG16
+    from keras.layers import Conv2DTranspose
+
+    weight_decay=0.
+    image_size = opt['input_shape']
+    classes = opt['nb_classes']
+
+    # this could also be the output a different Keras model or layer
+    input_tensor = Input(shape=image_size)
+
+    # create the base pre-trained model
+    base_model = VGG16(input_tensor=input_tensor, weights='imagenet', include_top=False)
+
+    #take the last conv layer output
+    x = base_model.layers[17].output
+
+    #and append transpose conv until we walk up to our output res
+    x = Conv2DTranspose(512, 2, strides=(2,2), activation='relu')(x)
+    x = Conv2DTranspose(512, 2, strides=(2,2), activation='relu')(x)
+    x = Conv2DTranspose(512, 2, strides=(2,2), activation='relu')(x)
+
+    x = Conv2DTranspose(256, 2, strides=(2,2), activation='relu')(x)
+
+    num_classes=2
+    x = Conv2D(num_classes, 1, activation='softmax')(x)
+    x = BilinearUpSampling2D(target_size=(600,800,2))(x)
+    model = Model(inputs=input_tensor, outputs = x)
+
+    model.compile(optimizer='adam',
+                #loss=weighted_binary_crossentropy(opt['presence_weight']),
+                loss=binary_crossentropy_with_logits,
+                metrics=['binary_accuracy', 'binary_crossentropy'])
+
+    return model
+
+
 def create_model(opt):
-    return AtrousFCN_Resnet50_16s(opt)
+    return VGG(opt)
+    #return AtrousFCN_Resnet50_16s(opt)
     #return FCNN(opt)
