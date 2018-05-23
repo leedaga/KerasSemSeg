@@ -23,10 +23,11 @@ def prepare_mask(mimg, opt):
     '''
     comb_classes = opt['combined_classes']
     class_colors = opt['class_colors']
+    num_classes = opt['nb_classes']
     
     width = mimg.shape[1]
     height = mimg.shape[0]
-    mask_image = np.zeros([height, width, 3], dtype=np.dtype('B'))
+    mask_image = np.zeros([height, width, num_classes], dtype=np.dtype('B'))
     iClass = 0
     for key, value in comb_classes.items():
         mask_ch = None
@@ -195,18 +196,25 @@ def predict(opt):
     res = pred[0]
     print("res", res.shape)
 
-    #car channel
-    car_ch = res[:,:,2]
-    binary_car_result = np.where(car_ch>0,1,0).astype('uint8')
-    cv2.imwrite('car.png', binary_car_result * 255)
+
+    width = img.shape[1]
+    height = img.shape[0]
+    final_image = np.zeros([height, width, 3], dtype=np.dtype('B'))
+    num_classes = opt['nb_classes']
+
+    iClass = 0
+    for iClass in range(num_classes):
+        channel_data = res[..., iClass]
+        print(channel_data.shape)
+        final_image[..., iClass] = np.reshape(channel_data, (height, width))
 
     #image will have 0 or 1, so multiply to view
-    res = res * 255
+    final_image = final_image * 255
     
     print("writing %s output" % opt['out'])
 
-    #just three classes, so writes out as nice 3 channel image
-    cv2.imwrite(opt['out'], res)
+    #writes out as 3 channel image
+    cv2.imwrite(opt['out'], final_image)
 
 
 if __name__ == "__main__":
@@ -255,11 +263,19 @@ if __name__ == "__main__":
         ([11, 0, 0]), #walls
     ]
 
+    '''
     opt['combined_classes'] =\
     {
         1 : [(0, 5), (8, 9), (11, 11)],
         2 : [(6, 7)],
         3 : [(10, 10)]
+    }
+    '''
+
+    opt['combined_classes'] =\
+    {
+        1 : [(6, 7)],
+        2 : [(10, 10)]
     }
 
     #the model saved only when the val_loss improves
@@ -281,7 +297,7 @@ if __name__ == "__main__":
 
     opt['out'] = args.out
 
-    opt['limit'] = -1 # when all training samples.
+    opt['limit'] = -1 # -1 when all training samples.
 
     if args.predict:
         predict(opt)
