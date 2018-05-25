@@ -187,6 +187,12 @@ def predict(opt):
 
     model = models.create_model(opt)
     model.load_weights(opt['weights_file'])
+    print("num layers:", len(model.layers))
+    #from models import load_json_and_weights
+    #model = load_json_and_weights('mobilenet_fcnn_mdl.json')
+
+    #from models import save_json_and_weights
+    #save_json_and_weights(model, 'mobilenet_fcnn_mdl.h5')
     
     image_path = "./Train/CameraRGB/222.png"
 

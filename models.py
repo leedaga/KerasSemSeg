@@ -5,6 +5,7 @@ Author: Tawn Kramer
 '''
 from __future__ import print_function
 import os
+import json
 import tensorflow as tf
 #os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 from keras.models import Sequential, Input, Model
@@ -21,7 +22,49 @@ from keras import losses
 from utils.BilinearUpSampling import BilinearUpSampling2D
 from utils.resnet_helpers import conv_block, identity_block, atrous_conv_block, atrous_identity_block
 
-def compile_model(model,opt):
+def load_model_json(json_fnm):
+    from keras.applications import mobilenet
+    cstm_objects = {'relu6': mobilenet.relu6,
+                   'DepthwiseConv2D': mobilenet.DepthwiseConv2D}
+
+    print('loading model json', json_fnm)
+    import keras
+    with open(json_fnm, 'r') as handle:
+        contents = handle.read()
+        model = keras.models.model_from_json(contents, custom_objects=cstm_objects)
+        return model
+
+def load_json_and_weights(json_fnm):
+    '''
+    given json file, load it and then look for the .weights file of the same name.
+    '''
+    model = load_model_json(json_fnm)
+    weights_fnm = json_fnm[:-4] + "weights"
+    model.load_weights(weights_fnm)
+    model.compile(optimizer='adam', loss='binary_crossentropy')
+    return model
+
+def save_json_and_weights(model, filename):
+    '''
+    given a keras model and a .h5 filename, save the model file
+    in the json format and the weights file in the h5 format
+    '''
+    if not '.h5' == filename[-3:]:
+        raise Exception("Model filename should end with .h5")
+
+    arch = model.to_json()
+    json_fnm = filename[:-2] + "json"
+    weights_fnm = filename[:-2] + "weights"
+
+    with open(json_fnm, "w") as outfile:
+        parsed = json.loads(arch)
+        arch_pretty = json.dumps(parsed, indent=4, sort_keys=True)
+        outfile.write(arch_pretty)
+
+    model.save_weights(weights_fnm)
+    return json_fnm, weights_fnm
+
+def compile_model(model, opt):
     """Would be part of create_model, except that same settings
         also need to be applied when loading model from file."""
     model.compile(optimizer='adam',

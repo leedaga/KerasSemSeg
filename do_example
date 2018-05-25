@@ -1,0 +1,1 @@
+python KerasSemSeg/predict.py Example/test_video.mp4

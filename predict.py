@@ -3,7 +3,7 @@ import numpy as np
 from PIL import Image
 from io import BytesIO, StringIO
 import models
-
+from keras.models import load_model
 file = sys.argv[-1]
 
 # Define encoder function
@@ -20,13 +20,20 @@ answer_key = {}
 
 opt = {}
 
-opt['weights_file'] = os.path.join(os.path.dirname(__file__), 'model.h5')
+opt['weights_file'] = os.path.join(os.path.dirname(__file__), 'mobilnet_fcnn2.h5')
 opt['nb_classes'] = 3
 opt['input_shape'] = (600, 800, 3)
 opt['presence_weight'] = 50.0
+#model_file = os.path.join(os.path.dirname(__file__), 'mobilenet_fcnn_mdl.h5')
+#print('loading from', opt['weights_file'])
 
 model = models.create_model(opt)
 model.load_weights(opt['weights_file'])
+
+#from keras.applications import mobilenet
+#model = load_model(model_file, custom_objects={
+#                   'relu6': mobilenet.relu6,
+#                   'DepthwiseConv2D': mobilenet.DepthwiseConv2D})
     
 # Frame numbering starts at 1
 frame = 1
