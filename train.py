@@ -153,6 +153,12 @@ def train(opt):
 
     model = models.create_model(opt)
 
+    if opt['continue']:
+        print('reloading weights')
+        model.load_weights(opt['weights_file'])
+        for layer in model.layers:
+            layer.trainable = True
+
     show_model_summary(model)
 
     callbacks = [
@@ -227,6 +233,7 @@ if __name__ == "__main__":
     parser.add_argument('--data_rgb', default="./Train/CameraRGB/*.png", help='data root dir')
     parser.add_argument('--data_mask', default="./Train/CameraSeg/*.png", help='data root dir')
     parser.add_argument('--out', default="prediction_image.png", help='output image filename')
+    parser.add_argument('--cont', action='store_true', help='do load previous model')
     
     args = parser.parse_args()
 
@@ -263,20 +270,20 @@ if __name__ == "__main__":
         ([11, 0, 0]), #walls
     ]
 
-    '''
     opt['combined_classes'] =\
     {
         1 : [(0, 5), (8, 9), (11, 11)],
         2 : [(6, 7)],
         3 : [(10, 10)]
     }
-    '''
 
+    '''
     opt['combined_classes'] =\
     {
         1 : [(6, 7)],
         2 : [(10, 10)]
     }
+    '''
 
     #the model saved only when the val_loss improves
     opt['weights_file'] = args.model
@@ -296,6 +303,8 @@ if __name__ == "__main__":
     opt['batch_size'] = args.batch_size
 
     opt['out'] = args.out
+
+    opt['continue'] = args.cont
 
     opt['limit'] = -1 # -1 when all training samples.
 

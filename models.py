@@ -164,11 +164,11 @@ def AtrousFCN_Resnet50_16s(opt):
 
 def VGG(opt):
     from keras.applications.vgg16 import VGG16
-    from keras.layers import Conv2DTranspose
+    from keras.layers import Conv2DTranspose, ZeroPadding2D
 
     weight_decay=0.
     image_size = opt['input_shape']
-    classes = opt['nb_classes']
+    num_classes = opt['nb_classes']
 
     # this could also be the output a different Keras model or layer
     input_tensor = Input(shape=image_size)
@@ -181,26 +181,72 @@ def VGG(opt):
 
     #and append transpose conv until we walk up to our output res
     x = Conv2DTranspose(512, 2, strides=(2,2), activation='relu')(x)
+    x = ZeroPadding2D(padding=((1,0), (0,0)))(x)
     x = Conv2DTranspose(512, 2, strides=(2,2), activation='relu')(x)
     x = Conv2DTranspose(512, 2, strides=(2,2), activation='relu')(x)
 
     x = Conv2DTranspose(256, 2, strides=(2,2), activation='relu')(x)
 
-    num_classes=2
     x = Conv2D(num_classes, 1, activation='softmax')(x)
-    x = BilinearUpSampling2D(target_size=(600,800,2))(x)
+    #x = BilinearUpSampling2D(target_size=(600,800,3))(x)
     model = Model(inputs=input_tensor, outputs = x)
 
-    model.compile(optimizer='adam',
-                #loss=weighted_binary_crossentropy(opt['presence_weight']),
-                loss=binary_crossentropy_with_logits,
+    # first: train only the top layers (which were randomly initialized)
+    # i.e. freeze all convolutional VGG layers
+    #for layer in base_model.layers:
+    #    layer.trainable = False
+
+    model.compile(optimizer='rmsprop',
+                loss=weighted_binary_crossentropy(opt['presence_weight']),
+                #loss=binary_crossentropy_with_logits,
                 metrics=['binary_accuracy', 'binary_crossentropy'])
 
     return model
 
+def MobileN(opt):
+    from keras.applications.mobilenet import MobileNet
+    from keras.layers import Conv2DTranspose, ZeroPadding2D, Cropping2D
+
+    weight_decay=0.
+    image_size = opt['input_shape']
+    num_classes = opt['nb_classes']
+
+    # this could also be the output a different Keras model or layer
+    input_tensor = Input(shape=image_size)
+
+    # create the base pre-trained model
+    base_model = MobileNet(input_tensor=input_tensor, weights='imagenet', include_top=False)
+
+    #take the last conv layer output
+    x = base_model.layers[-1].output
+
+    #and append transpose conv until we walk up to our output res
+    x = Conv2DTranspose(512, 2, strides=(2,2), activation='relu')(x)
+    x = Conv2DTranspose(512, 2, strides=(2,2), activation='relu')(x)
+    x = Cropping2D(cropping=((1, 0), (0, 0)))(x)
+    x = Conv2DTranspose(512, 2, strides=(2,2), activation='relu')(x)
+    x = Conv2DTranspose(256, 2, strides=(2,2), activation='relu')(x)
+    x = Conv2DTranspose(128, 2, strides=(2,2), activation='relu')(x)
+    x = Conv2D(128, 3, padding='same', activation='relu')(x)
+
+    x = Conv2D(num_classes, 1, activation='softmax')(x)
+    model = Model(inputs=input_tensor, outputs = x)
+
+    # first: train only the top layers (which were randomly initialized)
+    # i.e. freeze all convolutional VGG layers
+    #for layer in base_model.layers:
+    #    layer.trainable = False
+
+    model.compile(optimizer='rmsprop',
+                loss=weighted_binary_crossentropy(opt['presence_weight']),
+                #loss=binary_crossentropy_with_logits,
+                metrics=['binary_accuracy', 'binary_crossentropy'])
+
+    return model
 
 def create_model(opt):
-    return VGG(opt)
+    return MobileN(opt)
+    #return VGG(opt)
     #return AtrousFCN_Resnet50_16s(opt)
     #return FCNN(opt)
     #return FCNN_w_skip(opt)
